@@ -4,4 +4,10 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "modern-robotics",
+    "numpy>=2.3.3",
+]
+
+[tool.uv.sources]
+modern-robotics = { path = "../ModernRobotics/packages/Python" }
