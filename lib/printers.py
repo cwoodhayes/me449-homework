@@ -11,8 +11,9 @@ def print_readable_and_answer(arr: np.ndarray, name: str = "", round: int = 2) -
     print("READABLE:")
     print(arr)
     print("COPYABLE:")
-    print(repr(arr.round(2)))
-    print()
+    rep = repr(arr.round(2))
+    out = rep.removeprefix("array(").removesuffix(")")
+    print(out)
 
 
 def print_readable(arr: np.ndarray, name: str = "") -> None:

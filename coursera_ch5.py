@@ -29,7 +29,7 @@ def q1():
 
     print_readable_and_answer(tau.flatten(), "tau")
 
-    return
+    # return
 
     # for my own curiosity, i want to figure out what this wrench is when expressed in the body frame
     # like should it go up and to the right, so that the line of force goes thru the origin? so no moment,
@@ -44,7 +44,7 @@ def q1():
     )
     Ad_Tbs = Adjoint(np.linalg.inv(Tsb))
     F_b = Ad_Tbs.T @ F_s
-    print_readable_and_answer(F_b, "F_b (body wrench)")
+    print_readable(F_b.reshape(-1, 1), "F_b (body wrench)")
 
 
 def q2():
