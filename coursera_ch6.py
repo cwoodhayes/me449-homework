@@ -1,6 +1,7 @@
 from modern_robotics import IKinSpace
 
 import numpy as np
+import sympy as sym
 
 from lib.printers import print_readable_and_answer, print_readable
 
@@ -21,13 +22,29 @@ def newton_raphson(g, theta_k):
 def q1():
     print("################## Q1")
 
-    theta_2 = np.array(
+    x, y = sym.symbols("x,y")
+    theta = sym.Matrix([[x], [y]])
+    f_xy = sym.Matrix(
         [
-            5 + 8 / 5.0,
-            5 / 2.0 + 9.0 / 20,
+            [x**2 - 9],
+            [y**2 - 4],
         ]
     )
-    print_readable_and_answer(theta_2, "theta_2")
+
+    jac = f_xy.jacobian(theta)
+    jac_inv = jac.inv()
+    print_readable(jac_inv, "J^-1")
+
+    print_readable(jac_inv @ f_xy, "J^-1 @ f(x,y)")
+    print_readable(theta, "theta_k")
+    theta_next = theta - (jac_inv @ f_xy)
+    print_readable(theta_next, "theta_k+1")
+
+    func = sym.lambdify([x, y], theta_next)
+    theta1 = func(1, 1)
+    print_readable(theta1)
+    theta2 = func(*theta1.flatten())
+    print_readable_and_answer(theta2, "theta_2")
 
 
 def q2():
@@ -45,9 +62,9 @@ def q2():
     theta_0 = np.array([np.pi / 4, np.pi / 4, np.pi / 4])
     Slist = np.array(
         [
+            [0, 0, 1, 0, 0, 0],
             [0, 0, 1, 0, -1, 0],
             [0, 0, 1, 0, -2, 0],
-            [0, 0, 1, 0, -3, 0],
         ]
     ).T
     M = np.array(
@@ -67,5 +84,5 @@ def q2():
 
 
 if __name__ == "__main__":
-    # q1()
+    q1()
     q2()

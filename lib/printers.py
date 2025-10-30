@@ -2,6 +2,7 @@
 Convenience functions for printing stuff
 """
 
+import typing
 import numpy as np
 
 
@@ -11,12 +12,19 @@ def print_readable_and_answer(arr: np.ndarray, name: str = "", round: int = 2) -
     print("READABLE:")
     print(arr)
     print("COPYABLE:")
-    rep = repr(arr.round(2))
+    rep = repr(sigfig(arr, 3))
     out = rep.removeprefix("array(").removesuffix(")")
     print(out)
 
 
-def print_readable(arr: np.ndarray, name: str = "") -> None:
+def print_readable(arr: typing.Any, name: str = "") -> None:
     if name:
         print(f"//////{name}: ")
     print(arr)
+
+
+def sigfig(x, p):
+    x = np.asarray(x)
+    x_positive = np.where(np.isfinite(x) & (x != 0), np.abs(x), 10 ** (p - 1))
+    mags = 10 ** (p - 1 - np.floor(np.log10(x_positive)))
+    return np.round(x * mags) / mags
