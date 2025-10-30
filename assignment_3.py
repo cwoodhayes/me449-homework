@@ -83,45 +83,27 @@ def IKinBodyIterates(
     Output:
         (np.array([1.57073819, 2.999667, 3.14153913]), True)
     """
-    thetalist: np.ndarray = np.array(thetalist0).copy()
-    i = 0
-    T_i = TransInv(FKinBody(M, Blist, thetalist))
-    Vb = se3ToVec(MatrixLog6(np.dot(T_i, T)))
-    err_wb = np.linalg.norm([Vb[0], Vb[1], Vb[2]])
-    err_vb = np.linalg.norm([Vb[3], Vb[4], Vb[5]])
-    err = (err_wb > eomg, err_vb > ev)
-
+    thetalist = np.array(thetalist0).copy()
     all_thetas = [thetalist]
-    all_err_wb = [err_wb]
-    all_err_vb = [err_vb]
-
+    i = 0
+    maxiterations = 20
+    Vb = se3ToVec(MatrixLog6(np.dot(TransInv(FKinBody(M, Blist, thetalist)), T)))
+    err = (
+        np.linalg.norm([Vb[0], Vb[1], Vb[2]]) > eomg
+        or np.linalg.norm([Vb[3], Vb[4], Vb[5]]) > ev
+    )
     while err and i < maxiterations:
         thetalist = thetalist + np.dot(
             np.linalg.pinv(JacobianBody(Blist, thetalist)), Vb
         )
-        # keep thetas in (-pi, pi]
-        thetalist = np.atan2(np.sin(thetalist), np.cos(thetalist))
         all_thetas.append(thetalist)
-
-        T_i = TransInv(FKinBody(M, Blist, thetalist))
-        Vb = se3ToVec(MatrixLog6(np.dot(T_i, T)))
-        err_wb = np.linalg.norm([Vb[0], Vb[1], Vb[2]])
-        err_vb = np.linalg.norm([Vb[3], Vb[4], Vb[5]])
-        err = err_wb > eomg or err_vb > ev
-        all_err_vb.append(err_vb)
-        all_err_wb.append(err_wb)
-
-        iter = IKIterT(i, thetalist, T_i, Vb, float(err_wb), float(err_vb))
-        display_iter(iter)
-
         i = i + 1
-    return (
-        thetalist,
-        not err,
-        np.array(all_thetas),
-        np.array(all_err_wb),
-        np.array(all_err_vb),
-    )
+        Vb = se3ToVec(MatrixLog6(np.dot(TransInv(FKinBody(M, Blist, thetalist)), T)))
+        err = (
+            np.linalg.norm([Vb[0], Vb[1], Vb[2]]) > eomg
+            or np.linalg.norm([Vb[3], Vb[4], Vb[5]]) > ev
+        )
+    return (thetalist, not err, np.array(all_thetas), np.zeros(10), np.zeros(10))
 
 
 def plot_3d_traj(
@@ -173,12 +155,12 @@ def main():
     H2 = 0.095
     Blist = np.array(
         [
+            [0, 1, 0, W1 + W2, 0, L1 + L2],
+            [0, 0, 1, H2, -L1 - L2, 0],
+            [0, 0, 1, H2, -L2, 0],
+            [0, 0, 1, H2, 0, 0],
+            [0, -1, 0, -W2, 0, 0],
             [0, 0, 1, 0, 0, 0],
-            [0, 1, 0, -H1, 0, 0],
-            [0, 1, 0, -H1, 0, L1],
-            [0, 1, 0, -H1, 0, L1 + L2],
-            [0, 0, -1, -W1, L1 + L2, 0],
-            [0, 1, 0, H2 - H1, 0, L1 + L2],
         ]
     ).T
     M = np.array(
