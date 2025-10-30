@@ -6,22 +6,26 @@ import typing
 import numpy as np
 
 
-def print_readable_and_answer(arr: np.ndarray, name: str = "", round: int = 2) -> None:
+def print_readable_and_answer(
+    arr: np.ndarray, name: str = "", ndigits: int = 2, use_round: bool = True
+) -> None:
     if name:
         print(f"//////{name}: ")
     print("READABLE:")
-    print(arr)
+    print(np.round(arr, ndigits) if use_round else sigfig(arr, ndigits))
     print("COPYABLE:")
-    rep = repr(sigfig(arr, 3))
+    rep = repr(arr)
     out = rep.removeprefix("array(").removesuffix(")")
     print(out)
 
 
-def print_readable(arr: typing.Any, name: str = "", ndigits: int | None = None) -> None:
+def print_readable(
+    arr: typing.Any, name: str = "", ndigits: int = 3, use_round: bool = True
+) -> None:
     if name:
         print(f"//////{name}: ")
     if ndigits is not None:
-        arr = sigfig(arr, ndigits)
+        arr = np.round(arr, ndigits) if use_round else sigfig(arr, ndigits)
     print(arr)
 
 

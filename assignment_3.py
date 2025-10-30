@@ -36,7 +36,7 @@ def display_iter(iter: IKIterT) -> None:
 
 def IKinBodyIterates(
     Blist, M, T, thetalist0, eomg, ev, maxiterations: int = 20
-) -> tuple[np.ndarray, bool, np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, bool, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Computes inverse kinematics in the body frame for an open chain robot
 
     Based on modern_robotics.IKinBody()
@@ -84,36 +84,57 @@ def IKinBodyIterates(
         (np.array([1.57073819, 2.999667, 3.14153913]), True)
     """
     thetalist = np.array(thetalist0).copy()
-    all_thetas = [thetalist]
     i = 0
     maxiterations = 20
-    Vb = se3ToVec(MatrixLog6(np.dot(TransInv(FKinBody(M, Blist, thetalist)), T)))
-    err = (
-        np.linalg.norm([Vb[0], Vb[1], Vb[2]]) > eomg
-        or np.linalg.norm([Vb[3], Vb[4], Vb[5]]) > ev
-    )
+    T_i = FKinBody(M, Blist, thetalist)
+    Vb = se3ToVec(MatrixLog6(np.dot(TransInv(T_i), T)))
+    werr = np.linalg.norm([Vb[0], Vb[1], Vb[2]])
+    verr = np.linalg.norm([Vb[3], Vb[4], Vb[5]])
+    err = werr > eomg or verr > ev
+
+    all_thetas = [thetalist]
+    all_Ts = [T_i]
+    werrs = [werr]
+    verrs = [verr]
+
     while err and i < maxiterations:
         thetalist = thetalist + np.dot(
             np.linalg.pinv(JacobianBody(Blist, thetalist)), Vb
         )
+        T_i = FKinBody(M, Blist, thetalist)
+        Vb = se3ToVec(MatrixLog6(np.dot(TransInv(T_i), T)))
+        werr = np.linalg.norm([Vb[0], Vb[1], Vb[2]])
+        verr = np.linalg.norm([Vb[3], Vb[4], Vb[5]])
+        err = werr > eomg or verr > ev
+
         all_thetas.append(thetalist)
+        all_Ts.append(T_i)
+        werrs.append(werr)
+        verrs.append(verr)
+
+        iter = IKIterT(i, thetalist, T_i, Vb, float(werr), float(verr))
+        display_iter(iter)
+
         i = i + 1
-        Vb = se3ToVec(MatrixLog6(np.dot(TransInv(FKinBody(M, Blist, thetalist)), T)))
-        err = (
-            np.linalg.norm([Vb[0], Vb[1], Vb[2]]) > eomg
-            or np.linalg.norm([Vb[3], Vb[4], Vb[5]]) > ev
-        )
-    return (thetalist, not err, np.array(all_thetas), np.zeros(10), np.zeros(10))
+    return (
+        thetalist,
+        not err,
+        np.array(all_thetas),
+        np.array(all_Ts),
+        np.array(werrs),
+        np.array(verrs),
+    )
 
 
 def plot_3d_traj(
-    thetas: np.ndarray,
+    Ts: np.ndarray,
     final_position: np.ndarray,
     initial_guess: np.ndarray,
     ax: Axes,
     label: str,
 ) -> None:
-    ax.plot(thetas[:, 0], thetas[:, 1], zs=thetas[:, 2], zdir="z", label=label)
+    ps = Ts[:, 0:4, 3]
+    ax.plot(ps[:, 0], ps[:, 1], zs=ps[:, 2], zdir="z", label=label)
     ax.scatter(
         [initial_guess[0]],
         [initial_guess[1]],
@@ -176,7 +197,7 @@ def main():
 
     # theta_short_iterates = np.array([1.554, -0.497, 1.244, 0.870, 0.000, 3.171])
     theta_short_iterates = np.array([1.5, -1.25, 1.65, -1.26, -0.35, -3.15])
-    thetalist, success, all_thetas, all_errw, all_errv = IKinBodyIterates(
+    thetalist, success, all_thetas, all_Ts, all_errw, all_errv = IKinBodyIterates(
         Blist, M, T_sd, theta_short_iterates, e_w, e_v
     )
     print_readable(
@@ -186,7 +207,7 @@ def main():
     )
     fig = plt.figure("3d_traj_plot")
     ax = fig.add_subplot(projection="3d")
-    plot_3d_traj(all_thetas, thetalist, theta_short_iterates, ax, "long")
+    plot_3d_traj(all_Ts, thetalist, theta_short_iterates, ax, "long")
     ax.legend()
 
     # plot the others:
