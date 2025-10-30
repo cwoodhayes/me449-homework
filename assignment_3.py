@@ -1,8 +1,7 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Generator
 
-from modern_robotics import IKinBody
+from modern_robotics import se3ToVec, MatrixLog6, TransInv, FKinBody, JacobianBody
 import numpy as np
 
 from lib.printers import print_readable_and_answer, print_readable
@@ -18,28 +17,6 @@ class IKIterT:
     err_vb: float  # linear error magnitude ||v_b||
 
 
-def ik_in_body_iterator(
-    x_dest: np.ndarray, theta0: np.ndarray
-) -> Generator[IKIterT, None, None]:
-    """Helper iterator for numerical inverse kinematics.
-
-    This generator function yields an intermediate solution
-    for each iteration of the newton-raphson method.
-
-    Args:
-        x_dest (np.ndarray): destination EE position
-        theta0 (np.ndarray): initial guess joint vector
-
-    Yields:
-        IKIterT: iteration return type (defined above)
-    """
-    IKinBody()
-
-    idx = 0
-    while True:
-        idx += 1
-
-
 def display_iter(iter: IKIterT) -> None:
     """Prettyprint the per-iteration bookkeeping values"""
     print(f"Iteration {iter.idx}:\n")
@@ -52,37 +29,77 @@ def display_iter(iter: IKIterT) -> None:
     print()
 
 
-def IKinBodyIterates(
-    x_dest: np.ndarray,
-    theta0: np.ndarray,
-    epsilon_w: float,
-    epsilon_v: float,
-) -> np.ndarray:
-    """Geometric iterative numerical inverse kinematics solver.
+def IKinBodyIterates(Blist, M, T, thetalist0, eomg, ev):
+    """Computes inverse kinematics in the body frame for an open chain robot
 
-    Given an EE destination pose and an initial guess joint vector
-    theta0, iteratively find the joint vector which results in
-    x_dest.
+    Based on modern_robotics.IKinBody()
 
-    Args:
-        x_dest (np.ndarray): _description_
-        theta0 (np.ndarray): _description_
-        epsilon_w (float): _description_
-        epsilon_v (float): _description_
+    :param Blist: The joint screw axes in the end-effector frame when the
+                  manipulator is at the home position, in the format of a
+                  matrix with axes as the columns
+    :param M: The home configuration of the end-effector
+    :param T: The desired end-effector configuration Tsd
+    :param thetalist0: An initial guess of joint angles that are close to
+                       satisfying Tsd
+    :param eomg: A small positive tolerance on the end-effector orientation
+                 error. The returned joint angles must give an end-effector
+                 orientation error less than eomg
+    :param ev: A small positive tolerance on the end-effector linear position
+               error. The returned joint angles must give an end-effector
+               position error less than ev
+    :return thetalist: Joint angles that achieve T within the specified
+                       tolerances,
+    :return success: A logical value where TRUE means that the function found
+                     a solution and FALSE means that it ran through the set
+                     number of maximum iterations without finding a solution
+                     within the tolerances eomg and ev.
+    Uses an iterative Newton-Raphson root-finding method.
+    The maximum number of iterations before the algorithm is terminated has
+    been hardcoded in as a variable called maxiterations. It is set to 20 at
+    the start of the function, but can be changed if needed.
 
-    Returns:
-        np.ndarray: _description_
+    Example Input:
+        Blist = np.array([[0, 0, -1, 2, 0,   0],
+                          [0, 0,  0, 0, 1,   0],
+                          [0, 0,  1, 0, 0, 0.1]]).T
+        M = np.array([[-1, 0,  0, 0],
+                      [ 0, 1,  0, 6],
+                      [ 0, 0, -1, 2],
+                      [ 0, 0,  0, 1]])
+        T = np.array([[0, 1,  0,     -5],
+                      [1, 0,  0,      4],
+                      [0, 0, -1, 1.6858],
+                      [0, 0,  0,      1]])
+        thetalist0 = np.array([1.5, 2.5, 3])
+        eomg = 0.01
+        ev = 0.001
+    Output:
+        (np.array([1.57073819, 2.999667, 3.14153913]), True)
     """
-    max_iter = 10
-    thetas = []
-    for iter in ik_in_body_iterator(x_dest, theta0):
-        display_iter(iter)
-        thetas.append(iter.theta_i)
-        if iter.idx >= max_iter:
-            print("Maximum iteration reached. Finishing...")
-            break
+    thetalist: np.ndarray = np.array(thetalist0).copy()
+    i = 0
+    maxiterations = 20
+    T_i = TransInv(FKinBody(M, Blist, thetalist))
+    Vb = se3ToVec(MatrixLog6(np.dot(T_i, T)))
+    err = (
+        np.linalg.norm([Vb[0], Vb[1], Vb[2]]) > eomg
+        or np.linalg.norm([Vb[3], Vb[4], Vb[5]]) > ev
+    )
+    while err and i < maxiterations:
+        thetalist = thetalist + np.dot(
+            np.linalg.pinv(JacobianBody(Blist, thetalist)), Vb
+        )
+        T_i = TransInv(FKinBody(M, Blist, thetalist))
+        Vb = se3ToVec(MatrixLog6(np.dot(T_i, T)))
+        err_wb = np.linalg.norm([Vb[0], Vb[1], Vb[2]])
+        err_vb = np.linalg.norm([Vb[3], Vb[4], Vb[5]])
+        err = err_wb > eomg or err_vb > ev
 
-    return np.array(thetas)
+        iter = IKIterT(i, thetalist, T_i, Vb, float(err_wb), float(err_vb))
+        display_iter(iter)
+
+        i = i + 1
+    return (thetalist, not err)
 
 
 def main():
@@ -94,7 +111,43 @@ def main():
             [0, 0, 0, 1],
         ]
     )
-    IKinBodyIterates()
+    e_w = 0.001
+    e_v = 0.0001
+
+    theta_short_iterates = np.array([0, 0, 0, 0, 0, 0])
+
+    # UR5 constants:
+    W1 = 0.109
+    W2 = 0.082
+    L1 = 0.425
+    L2 = 0.392
+    H1 = 0.089
+    H2 = 0.095
+    Blist = np.array(
+        [
+            [0, 0, 1, 0, 0, 0],
+            [0, 1, 0, -H1, 0, 0],
+            [0, 1, 0, -H1, 0, L1],
+            [0, 1, 0, -H1, 0, L1 + L2],
+            [0, 0, -1, -W1, L1 + L2, 0],
+            [0, 1, 0, H2 - H1, 0, L1 + L2],
+        ]
+    ).T
+    M = np.array(
+        [
+            [-1, 0, 0, L1 + L2],
+            [0, 0, 1, W1 + W2],
+            [0, 1, 0, H1 - H2],
+            [0, 0, 0, 1],
+        ]
+    )
+
+    thetalist, success = IKinBodyIterates(
+        Blist, M, T_sd, theta_short_iterates, e_w, e_v
+    )
+    print_readable(
+        thetalist, f"theta_d ({'CONVERGED' if success else 'NO CONVERGENCE'})"
+    )
 
 
 if __name__ == "__main__":
