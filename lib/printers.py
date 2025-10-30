@@ -17,9 +17,11 @@ def print_readable_and_answer(arr: np.ndarray, name: str = "", round: int = 2) -
     print(out)
 
 
-def print_readable(arr: typing.Any, name: str = "") -> None:
+def print_readable(arr: typing.Any, name: str = "", ndigits: int | None = None) -> None:
     if name:
         print(f"//////{name}: ")
+    if ndigits is not None:
+        arr = sigfig(arr, ndigits)
     print(arr)
 
 

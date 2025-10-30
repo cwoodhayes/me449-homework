@@ -20,16 +20,18 @@ class IKIterT:
 def display_iter(iter: IKIterT) -> None:
     """Prettyprint the per-iteration bookkeeping values"""
     print(f"Iteration {iter.idx}:\n")
-    print_readable(iter.theta_i, "joint vector:")
-    print()
-    print_readable(iter.T_sb, "SE(3) end-effector config:")
-    print_readable(iter.V_b, "error twist V_b")
-    print(f"angular error: {iter.err_wb}")
-    print(f"linear error: {iter.err_vb}")
+    print("\njoint vector:")
+    print_readable(iter.theta_i, ndigits=2)
+    print("\nSE(3) end-effector config:")
+    print_readable(iter.T_sb, ndigits=2)
+    print("\nerror twist V_b:")
+    print_readable(iter.V_b, ndigits=2)
+    print(f"\nangular error:   {round(iter.err_wb, 3)}")
+    print(f" linear error:   {round(iter.err_vb, 3)}")
     print()
 
 
-def IKinBodyIterates(Blist, M, T, thetalist0, eomg, ev):
+def IKinBodyIterates(Blist, M, T, thetalist0, eomg, ev, maxiterations: int = 20):
     """Computes inverse kinematics in the body frame for an open chain robot
 
     Based on modern_robotics.IKinBody()
@@ -78,7 +80,6 @@ def IKinBodyIterates(Blist, M, T, thetalist0, eomg, ev):
     """
     thetalist: np.ndarray = np.array(thetalist0).copy()
     i = 0
-    maxiterations = 20
     T_i = TransInv(FKinBody(M, Blist, thetalist))
     Vb = se3ToVec(MatrixLog6(np.dot(T_i, T)))
     err = (
@@ -89,6 +90,9 @@ def IKinBodyIterates(Blist, M, T, thetalist0, eomg, ev):
         thetalist = thetalist + np.dot(
             np.linalg.pinv(JacobianBody(Blist, thetalist)), Vb
         )
+        # keep thetas in (-pi, pi]
+        thetalist = np.atan2(np.sin(thetalist), np.cos(thetalist))
+
         T_i = TransInv(FKinBody(M, Blist, thetalist))
         Vb = se3ToVec(MatrixLog6(np.dot(T_i, T)))
         err_wb = np.linalg.norm([Vb[0], Vb[1], Vb[2]])
@@ -113,8 +117,6 @@ def main():
     )
     e_w = 0.001
     e_v = 0.0001
-
-    theta_short_iterates = np.array([0, 0, 0, 0, 0, 0])
 
     # UR5 constants:
     W1 = 0.109
@@ -142,11 +144,24 @@ def main():
         ]
     )
 
+    ## Actual runs
+
+    theta_short_iterates = np.array([0, 0, 0, 0, 0, 0])
     thetalist, success = IKinBodyIterates(
         Blist, M, T_sd, theta_short_iterates, e_w, e_v
     )
     print_readable(
-        thetalist, f"theta_d ({'CONVERGED' if success else 'NO CONVERGENCE'})"
+        thetalist,
+        f"theta_d short ({'CONVERGED' if success else 'NO CONVERGENCE'})",
+        ndigits=4,
+    )
+
+    theta_long_iterates = np.array([0, 0, 0, 0, 0, 0])
+    thetalist, success = IKinBodyIterates(Blist, M, T_sd, theta_long_iterates, e_w, e_v)
+    print_readable(
+        thetalist,
+        f"theta_d long ({'CONVERGED' if success else 'NO CONVERGENCE'})",
+        ndigits=4,
     )
 
 
