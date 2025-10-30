@@ -192,7 +192,8 @@ def main():
 
     ## Actual runs
 
-    theta_short_iterates = np.array([1.554, -0.497, 1.244, 0.870, 0.000, 3.171])
+    # theta_short_iterates = np.array([1.554, -0.497, 1.244, 0.870, 0.000, 3.171])
+    theta_short_iterates = np.array([1.5, -1.25, 1.65, -1.26, -0.35, -3.15])
     thetalist, success, all_thetas, all_errw, all_errv = IKinBodyIterates(
         Blist, M, T_sd, theta_short_iterates, e_w, e_v
     )
@@ -212,6 +213,7 @@ def main():
     axw.plot(range(len(all_errw)), all_errw)
     axw.set_xlabel("iteration")
     axw.set_ylabel("Angular error magnitude (rads)")
+
     axv.plot(range(len(all_errv)), all_errv)
     axv.set_xlabel("iteration")
     axv.set_ylabel("Linear error magnitude (m)")
