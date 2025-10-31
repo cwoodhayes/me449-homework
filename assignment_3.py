@@ -128,24 +128,22 @@ def IKinBodyIterates(
 
 def plot_3d_traj(
     Ts: np.ndarray,
-    final_position: np.ndarray,
-    initial_guess: np.ndarray,
     ax: Axes,
     label: str,
 ) -> None:
     ps = Ts[:, 0:4, 3]
     ax.plot(ps[:, 0], ps[:, 1], zs=ps[:, 2], zdir="z", label=label)
     ax.scatter(
-        [initial_guess[0]],
-        [initial_guess[1]],
-        [initial_guess[2]],
+        [ps[0, 0]],
+        [ps[0, 1]],
+        [ps[0, 2]],
         c="orange",
         label="initial guess",
     )
     ax.scatter(
-        [final_position[0]],
-        [final_position[1]],
-        [final_position[2]],
+        [ps[-1, 0]],
+        [ps[-1, 1]],
+        [ps[-1, 2]],
         c="black",
         marker="x",
         label="final position",
@@ -207,7 +205,7 @@ def main():
     )
     fig = plt.figure("3d_traj_plot")
     ax = fig.add_subplot(projection="3d")
-    plot_3d_traj(all_Ts, thetalist, theta_short_iterates, ax, "long")
+    plot_3d_traj(all_Ts, ax, "short")
     ax.legend()
 
     # plot the others:
