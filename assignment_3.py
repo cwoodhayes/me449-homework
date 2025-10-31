@@ -1,3 +1,10 @@
+"""Code for ME449 assignment 3:
+
+https://hades.mech.northwestern.edu/images/7/7f/ME449-asst3-2025.pdf
+
+author: conor hayes
+"""
+
 from dataclasses import dataclass
 from pathlib import Path
 import signal
@@ -101,6 +108,7 @@ def IKinBodyIterates(
         thetalist = thetalist + np.dot(
             np.linalg.pinv(JacobianBody(Blist, thetalist)), Vb
         )
+        thetalist = np.atan2(np.sin(thetalist), np.cos(thetalist))
         T_i = FKinBody(M, Blist, thetalist)
         Vb = se3ToVec(MatrixLog6(np.dot(TransInv(T_i), T)))
         werr = np.linalg.norm([Vb[0], Vb[1], Vb[2]])
@@ -154,7 +162,9 @@ def plot_3d_traj(
     ax.set_zlabel("z (m)")  # type: ignore
 
 
-def play_and_plot(theta_guess, Blist, M, T_sd, e_w, e_v, ax_3d, axw, axv, name: str):
+def play_and_plot(
+    theta_guess, Blist, M, T_sd, e_w, e_v, ax_3d, axw, axv, name: str, csvpath: Path
+):
     thetalist, success, all_thetas, all_Ts, all_errw, all_errv = IKinBodyIterates(
         Blist, M, T_sd, theta_guess, e_w, e_v
     )
@@ -176,6 +186,10 @@ def play_and_plot(theta_guess, Blist, M, T_sd, e_w, e_v, ax_3d, axw, axv, name: 
 
     axw.legend()
     axv.legend()
+
+    if csvpath.exists():
+        csvpath.unlink()
+    np.savetxt(csvpath, all_thetas, delimiter=",")
 
 
 def main():
@@ -223,10 +237,36 @@ def main():
     fig2 = plt.figure("errs")
     axw, axv = fig2.subplots(2, 1)
 
+    OUTDIR = Path(__file__).parent / "output/"
+
     theta_short = np.array([1.5, -1.2, 1.7, -1.2, -0.3, -3.1])
     theta_long = np.array([4.9, 4.6, 2.1, 0.0, 2.8, -3.6])
-    play_and_plot(theta_short, Blist, M, T_sd, e_w, e_v, ax_3d, axw, axv, "short")
-    play_and_plot(theta_long, Blist, M, T_sd, e_w, e_v, ax_3d, axw, axv, "long")
+    play_and_plot(
+        theta_short,
+        Blist,
+        M,
+        T_sd,
+        e_w,
+        e_v,
+        ax_3d,
+        axw,
+        axv,
+        "short",
+        OUTDIR / "A3short.csv",
+    )
+    play_and_plot(
+        theta_long,
+        Blist,
+        M,
+        T_sd,
+        e_w,
+        e_v,
+        ax_3d,
+        axw,
+        axv,
+        "long",
+        OUTDIR / "A3long.csv",
+    )
 
     plt.show()
 
