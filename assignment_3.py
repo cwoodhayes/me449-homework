@@ -14,7 +14,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 
-from lib.printers import print_readable_and_answer, print_readable
+from lib.printers import print_readable
 
 
 @dataclass
@@ -252,7 +252,7 @@ def main():
         axw,
         axv,
         "short",
-        OUTDIR / "A3short.csv",
+        OUTDIR / "short_iterates.csv",
     )
     play_and_plot(
         theta_long,
@@ -265,7 +265,7 @@ def main():
         axw,
         axv,
         "long",
-        OUTDIR / "A3long.csv",
+        OUTDIR / "long_iterates.csv",
     )
 
     plt.show()
