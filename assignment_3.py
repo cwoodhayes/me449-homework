@@ -223,8 +223,8 @@ def main():
     fig2 = plt.figure("errs")
     axw, axv = fig2.subplots(2, 1)
 
-    theta_short = np.array([1.5, -1.25, 1.65, -1.26, -0.35, -3.15])
-    theta_long = np.array([0, 0, 0, 0, 0, 0])
+    theta_short = np.array([1.5, -1.2, 1.7, -1.2, -0.3, -3.1])
+    theta_long = np.array([4.9, 4.6, 2.1, 0.0, 2.8, -3.6])
     play_and_plot(theta_short, Blist, M, T_sd, e_w, e_v, ax_3d, axw, axv, "short")
     play_and_plot(theta_long, Blist, M, T_sd, e_w, e_v, ax_3d, axw, axv, "long")
 
