@@ -133,6 +133,7 @@ def plot_3d_traj(
 ) -> None:
     ps = Ts[:, 0:4, 3]
     ax.plot(ps[:, 0], ps[:, 1], zs=ps[:, 2], zdir="z", label=label)
+    ax.legend()
     ax.scatter(
         [ps[0, 0]],
         [ps[0, 1]],
@@ -151,6 +152,30 @@ def plot_3d_traj(
     ax.set_xlabel("x (m)")
     ax.set_ylabel("y (m)")
     ax.set_zlabel("z (m)")  # type: ignore
+
+
+def play_and_plot(theta_guess, Blist, M, T_sd, e_w, e_v, ax_3d, axw, axv, name: str):
+    thetalist, success, all_thetas, all_Ts, all_errw, all_errv = IKinBodyIterates(
+        Blist, M, T_sd, theta_guess, e_w, e_v
+    )
+    print_readable(
+        thetalist,
+        f"theta_d {name} ({'CONVERGED' if success else 'NO CONVERGENCE'})",
+        ndigits=4,
+    )
+
+    plot_3d_traj(all_Ts, ax_3d, name)
+
+    axw.plot(range(len(all_errw)), all_errw, label=name)
+    axw.set_xlabel("iteration")
+    axw.set_ylabel("Angular error (rads)")
+
+    axv.plot(range(len(all_errv)), all_errv, label=name)
+    axv.set_xlabel("iteration")
+    axv.set_ylabel("Linear error (m)")
+
+    axw.legend()
+    axv.legend()
 
 
 def main():
@@ -193,47 +218,16 @@ def main():
 
     ## Actual runs
     fig = plt.figure("3d_traj_plot")
-    ax = fig.add_subplot(projection="3d")
+    ax_3d = fig.add_subplot(projection="3d")
 
-    # theta_short_iterates = np.array([1.554, -0.497, 1.244, 0.870, 0.000, 3.171])
-    theta_short_iterates = np.array([1.5, -1.25, 1.65, -1.26, -0.35, -3.15])
-    thetalist, success, all_thetas, all_Ts, all_errw, all_errv = IKinBodyIterates(
-        Blist, M, T_sd, theta_short_iterates, e_w, e_v
-    )
-    print_readable(
-        thetalist,
-        f"theta_d short ({'CONVERGED' if success else 'NO CONVERGENCE'})",
-        ndigits=4,
-    )
-
-    plot_3d_traj(all_Ts, ax, "short")
-
-    theta_long_iterates = np.array([0, 0, 0, 0, 0, 0])
-    thetalist, success, all_thetas, all_Ts, all_errw, all_errv = IKinBodyIterates(
-        Blist, M, T_sd, theta_long_iterates, e_w, e_v
-    )
-    print_readable(
-        thetalist,
-        f"theta_d long ({'CONVERGED' if success else 'NO CONVERGENCE'})",
-        ndigits=4,
-    )
-
-    plot_3d_traj(all_Ts, ax, "long")
-
-    ## plot the resuls
-
-    ax.legend()
-
-    # plot the others:
     fig2 = plt.figure("errs")
     axw, axv = fig2.subplots(2, 1)
-    axw.plot(range(len(all_errw)), all_errw)
-    axw.set_xlabel("iteration")
-    axw.set_ylabel("Angular error magnitude (rads)")
 
-    axv.plot(range(len(all_errv)), all_errv)
-    axv.set_xlabel("iteration")
-    axv.set_ylabel("Linear error magnitude (m)")
+    theta_short = np.array([1.5, -1.25, 1.65, -1.26, -0.35, -3.15])
+    theta_long = np.array([0, 0, 0, 0, 0, 0])
+    play_and_plot(theta_short, Blist, M, T_sd, e_w, e_v, ax_3d, axw, axv, "short")
+    play_and_plot(theta_long, Blist, M, T_sd, e_w, e_v, ax_3d, axw, axv, "long")
+
     plt.show()
 
 
