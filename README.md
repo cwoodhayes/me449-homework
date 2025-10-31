@@ -1,5 +1,7 @@
 # Code for ME449 Assignment 3
 
+Code for this assignment is in `assignment_3.py`
+
 ## run instructions:
 ### using `uv` (no virtualenv needed)
 ```

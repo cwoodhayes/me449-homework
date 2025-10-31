@@ -67,6 +67,11 @@ def IKinBodyIterates(
                      a solution and FALSE means that it ran through the set
                      number of maximum iterations without finding a solution
                      within the tolerances eomg and ev.
+    :return all_thetas: all theta values for the duration of the iteration
+    :return all_Ts: all EE transforms for the duration of the iteration
+    :return werrs: all angular error values for the duration of the iteration
+    :return verrs: all linear error values for the duration of the iteration
+
     Uses an iterative Newton-Raphson root-finding method.
     The maximum number of iterations before the algorithm is terminated has
     been hardcoded in as a variable called maxiterations. It is set to 20 at
@@ -139,6 +144,7 @@ def plot_3d_traj(
     ax: Axes,
     label: str,
 ) -> None:
+    """plot a 3d trajectory using pyplot"""
     ps = Ts[:, 0:4, 3]
     ax.plot(ps[:, 0], ps[:, 1], zs=ps[:, 2], zdir="z", label=label)
     ax.legend()
@@ -163,8 +169,33 @@ def plot_3d_traj(
 
 
 def play_and_plot(
-    theta_guess, Blist, M, T_sd, e_w, e_v, ax_3d, axw, axv, name: str, csvpath: Path
+    theta_guess: np.ndarray,
+    Blist: np.ndarray,
+    M: np.ndarray,
+    T_sd: np.ndarray,
+    e_w: float,
+    e_v: float,
+    ax_3d: Axes,
+    axw: Axes,
+    axv: Axes,
+    name: str,
+    csvpath: Path,
 ):
+    """Run iterative inverse kinematics, plot the result, and write to csv
+
+    Args:
+        theta_guess (_type_): initial guess
+        Blist (_type_): joint screw axes
+        M (_type_): home EE transformation matrix
+        T_sd (_type_): destination EE transformation matrix
+        e_w (_type_): angular threshold for IK
+        e_v (_type_): distance threshold for IK
+        ax_3d (_type_): 3D axis to plot trajectories on
+        axw (_type_): axis to plot angular error
+        axv (_type_): axis to plot linear error
+        name (str): name of the trajectory
+        csvpath (Path): path to a csv output file
+    """
     thetalist, success, all_thetas, all_Ts, all_errw, all_errv = IKinBodyIterates(
         Blist, M, T_sd, theta_guess, e_w, e_v
     )
