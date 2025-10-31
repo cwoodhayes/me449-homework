@@ -192,6 +192,8 @@ def main():
     )
 
     ## Actual runs
+    fig = plt.figure("3d_traj_plot")
+    ax = fig.add_subplot(projection="3d")
 
     # theta_short_iterates = np.array([1.554, -0.497, 1.244, 0.870, 0.000, 3.171])
     theta_short_iterates = np.array([1.5, -1.25, 1.65, -1.26, -0.35, -3.15])
@@ -203,9 +205,23 @@ def main():
         f"theta_d short ({'CONVERGED' if success else 'NO CONVERGENCE'})",
         ndigits=4,
     )
-    fig = plt.figure("3d_traj_plot")
-    ax = fig.add_subplot(projection="3d")
+
     plot_3d_traj(all_Ts, ax, "short")
+
+    theta_long_iterates = np.array([0, 0, 0, 0, 0, 0])
+    thetalist, success, all_thetas, all_Ts, all_errw, all_errv = IKinBodyIterates(
+        Blist, M, T_sd, theta_long_iterates, e_w, e_v
+    )
+    print_readable(
+        thetalist,
+        f"theta_d long ({'CONVERGED' if success else 'NO CONVERGENCE'})",
+        ndigits=4,
+    )
+
+    plot_3d_traj(all_Ts, ax, "long")
+
+    ## plot the resuls
+
     ax.legend()
 
     # plot the others:
@@ -219,15 +235,6 @@ def main():
     axv.set_xlabel("iteration")
     axv.set_ylabel("Linear error magnitude (m)")
     plt.show()
-    return
-
-    theta_long_iterates = np.array([0, 0, 0, 0, 0, 0])
-    thetalist, success = IKinBodyIterates(Blist, M, T_sd, theta_long_iterates, e_w, e_v)
-    print_readable(
-        thetalist,
-        f"theta_d long ({'CONVERGED' if success else 'NO CONVERGENCE'})",
-        ndigits=4,
-    )
 
 
 if __name__ == "__main__":
