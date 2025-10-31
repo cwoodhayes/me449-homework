@@ -272,6 +272,7 @@ def main():
 
     theta_short = np.array([1.5, -1.2, 1.7, -1.2, -0.3, -3.1])
     theta_long = np.array([4.9, 4.6, 2.1, 0.0, 2.8, -3.6])
+    print("***************SHORT GUESS**************")
     play_and_plot(
         theta_short,
         Blist,
@@ -285,6 +286,7 @@ def main():
         "short",
         OUTDIR / "short_iterates.csv",
     )
+    print("***************LONG GUESS**************")
     play_and_plot(
         theta_long,
         Blist,
