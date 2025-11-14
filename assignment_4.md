@@ -73,4 +73,5 @@ At this higher stiffness + damping value, I'd expect:
 We see the above behavior in the videos attached.
 
 ## Part 4
+See video. constants from 3B were used again.
 
