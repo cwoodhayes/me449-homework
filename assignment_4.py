@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
-from modern_robotics import ForwardDynamics, EulerStep
+from modern_robotics import ForwardDynamics, EulerStep, FKinSpace
 import numpy as np
 
 from lib.printers import print_readable
@@ -124,6 +124,26 @@ def puppet(
 
                 # no force applied to EE
                 Ftip = np.zeros(6, dtype="float")
+            case PuppetConfig.P3_STATIONARY_SPRING | PuppetConfig.P4_MOVING_SPRING:
+                # joint torques caused by damping
+                taulist = -dthetalist * damping
+
+                # get spring position in EE frame {b}
+                spring_s = reference_pos(dt * i)
+                T_sb = FKinSpace(Mlist, Slist, thetalist)
+                T_bs = np.linalg.inv(T_sb)
+                spring_b = spring_s @ T_bs.T
+
+                # calculate spring force in {b}
+                ee_b = T_sb[3, :-1]
+                dist = spring_b - ee_b
+                dist_magnitude = np.linalg.norm(dist)
+                F_spring_magnitude = stiffness * (dist_magnitude - restLength)
+                F_spring = F_spring_magnitude * (dist / dist_magnitude)
+
+                # spring force is applied to EE
+                # meaning that Ftip is -Fspring
+                Ftip = -F_spring
             case _:
                 raise NotImplementedError("case fallthrough.")
 
@@ -234,6 +254,53 @@ def part2() -> None:
 def part3() -> None:
     print("####### PART 3 ###############")
 
+    g = np.zeros(3)
+    home_thetas = np.zeros(6, dtype="float")
+    rest_dthetas = np.zeros(6, dtype="float")
+    t = 10.0
+    dt = 0.01
+    rest_length = 0.0
+
+    # create some small oscillations with the spring
+    stiffness = 2.0
+    damping = 0.0
+    thetamat, dthetamat = puppet(
+        home_thetas,
+        rest_dthetas,
+        g,
+        ur5.Mlist,
+        ur5.Slist,
+        ur5.Glist,
+        t,
+        dt,
+        damping,
+        stiffness,
+        rest_length,
+        reference_pos=lambda t_curr: np.array([1.0, -1.0, 1.0]),
+        cfg=PuppetConfig.P2_DAMPING,
+    )
+    thetamat_to_csv(thetamat, "part3a")
+
+    # add damping for part b
+    stiffness = 2.0
+    damping = 1.0
+    thetamat, dthetamat = puppet(
+        home_thetas,
+        rest_dthetas,
+        g,
+        ur5.Mlist,
+        ur5.Slist,
+        ur5.Glist,
+        t,
+        dt,
+        damping,
+        stiffness,
+        rest_length,
+        reference_pos=lambda t_curr: np.array([1.0, -1.0, 1.0]),
+        cfg=PuppetConfig.P2_DAMPING,
+    )
+    thetamat_to_csv(thetamat, "part3b")
+
 
 def part4() -> None:
     print("####### PART 4 ###############")
@@ -241,8 +308,8 @@ def part4() -> None:
 
 def main() -> None:
     # part1()
-    part2()
-    # part3()
+    # part2()
+    part3()
     # part4()
 
 
