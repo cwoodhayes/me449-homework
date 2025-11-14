@@ -118,6 +118,12 @@ def puppet(
 
                 # no force applied to EE
                 Ftip = np.zeros(6, dtype="float")
+            case PuppetConfig.P2_DAMPING:
+                # joint torques caused by damping
+                taulist = -dthetalist * damping
+
+                # no force applied to EE
+                Ftip = np.zeros(6, dtype="float")
             case _:
                 raise NotImplementedError("case fallthrough.")
 
@@ -127,7 +133,7 @@ def puppet(
         )
 
         th_next, dth_next = EulerStep(thetalist, dthetalist, ddthetalist, dt)
-        thetalist = th_next
+        thetalist = np.mod(th_next, 2 * np.pi)
         dthetalist = dth_next
 
     return thetamat, dthetamat
@@ -140,6 +146,7 @@ def thetamat_to_csv(thetamat: np.ndarray, stem: str) -> None:
     if path.exists():
         path.unlink()
 
+    print(f"- Writing to {path.name}")
     np.savetxt(path, thetamat, delimiter=",")
 
 
@@ -193,6 +200,36 @@ def part1() -> None:
 def part2() -> None:
     print("####### PART 2 ###############")
 
+    g = np.array([0, 0, -9.81])
+    home_thetas = np.zeros(6, dtype="float")
+    rest_dthetas = np.zeros(6, dtype="float")
+    t = 10.0
+    dt = 0.01
+
+    names = ["part2a", "part2b"]
+    damps = [1.0, -0.01]
+
+    # names = ["part2-test"]
+    # damps = [3.0]
+
+    for name, damping in zip(names, damps):
+        thetamat, dthetamat = puppet(
+            home_thetas,
+            rest_dthetas,
+            g,
+            ur5.Mlist,
+            ur5.Slist,
+            ur5.Glist,
+            t,
+            dt,
+            damping,
+            0.0,
+            0.0,
+            reference_pos=lambda t_curr: np.array([0.0, 0.0, 0.0]),
+            cfg=PuppetConfig.P2_DAMPING,
+        )
+        thetamat_to_csv(thetamat, name)
+
 
 def part3() -> None:
     print("####### PART 3 ###############")
@@ -203,8 +240,8 @@ def part4() -> None:
 
 
 def main() -> None:
-    part1()
-    # part2()
+    # part1()
+    part2()
     # part3()
     # part4()
 

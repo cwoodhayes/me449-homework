@@ -21,10 +21,36 @@ pip install -r requirements.txt
 python assignment_4.py
 ```
 
-
 ## Part 1
+For part A, `dt=0.001` was chosen, which gave a reasonable energy-preserving
+trajectory as evaluated visually in CopelliaSim.
+
+For part B, `dt=0.02` was chosen, causing the robot arm's trajectory to chaotically
+increase energy as time goes on, once more evaluated visually.
+
+In order to plot energy over time, we could calculate energy for each timestep
+inside of `puppet()` as follows (all variables on the right hand side of the
+equation are already available at runtime inside the function as implemented):
+
+$KE = .5 * \dot{\theta}^T M(\theta) \dot{\theta}$
+
+Then we can save this energy in an array to be returned at the end of `puppet()` execution.
 
 ## Part 2
+For part A, `damping=1.0` was selected, and for part B, `damping=-0.01` was selected.
+
+Very large constant damping values produce overflow values in numpy
+for this implementation, but in general, large damping values with
+insufficiently small values of `dt` will produce
+oscillations in simulation; this is because a small velocity will produce a 
+sufficiently large acceleration to flip the sign of the joint velocity over
+the course of `dt`, resulting in a flip-flopping effect that may
+escalate out of control.
+
+This is only an artifact of simulation, however, because in continuous time
+the damping force can only reduce the velocity to 0, not reverse the sign. 
+Similarly, if `dt` is shrunk, the simulation can handle larger damping values
+without such oscillations.
 
 ## Part 3
 
