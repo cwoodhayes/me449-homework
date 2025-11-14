@@ -4,12 +4,10 @@ from enum import Enum, auto
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-import signal
+from typing import Callable
 
-from modern_robotics import se3ToVec, MatrixLog6, TransInv, FKinBody, JacobianBody
+from modern_robotics import ForwardDynamics, EulerStep
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.axes import Axes
 
 from lib.printers import print_readable
 
@@ -74,6 +72,7 @@ def puppet(
     damping: float,
     stiffness: float,
     restLength: float,
+    reference_pos: Callable[[float], np.ndarray],
     cfg: PuppetConfig = PuppetConfig.P4_MOVING_SPRING,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Allows puppeteering of a UR5 robot arm.
@@ -102,10 +101,34 @@ def puppet(
             dthetmat: an N x n matrix where row i is the set of joint
                 rates after simulation step i − 1
     """
-    N = int(np.floor(t / dt))
+    N = int(np.ceil(t / dt))
     thetamat = np.empty(shape=(N, 6))
     dthetamat = np.empty(shape=(N, 6))
     print(f"thetamat shape={thetamat.shape}")
+
+    for i in range(N):
+        thetamat[i] = thetalist
+        dthetamat[i] = dthetalist
+
+        # figure out tau and F_tip
+        match cfg:
+            case PuppetConfig.P1_FREEFALL:
+                # no torques on joints; only g applied to the links
+                taulist = np.zeros(6)
+
+                # no force applied to EE
+                Ftip = np.zeros(6, dtype="float")
+            case _:
+                raise NotImplementedError("case fallthrough.")
+
+        # forward dynamics given the above
+        ddthetalist = ForwardDynamics(
+            thetalist, dthetalist, taulist, g, Ftip, Mlist, Glist, Slist
+        )
+
+        th_next, dth_next = EulerStep(thetalist, dthetalist, ddthetalist, dt)
+        thetalist = th_next
+        dthetalist = dth_next
 
     return thetamat, dthetamat
 
@@ -127,8 +150,8 @@ def part1() -> None:
     home_thetas = np.zeros(6, dtype="float")
     rest_dthetas = np.zeros(6, dtype="float")
     t = 10.0
-    dt_good = 0.01
-    dt_explode = 0.1
+    dt_good = 0.001
+    dt_explode = 0.02
 
     # where energy appears nearly constant
     thetamat, dthetamat = puppet(
@@ -143,6 +166,7 @@ def part1() -> None:
         0.0,
         0.0,
         0.0,
+        reference_pos=lambda t_curr: np.array([0.0, 0.0, 0.0]),
         cfg=PuppetConfig.P1_FREEFALL,
     )
     thetamat_to_csv(thetamat, "part1a")
@@ -160,6 +184,7 @@ def part1() -> None:
         0.0,
         0.0,
         0.0,
+        reference_pos=lambda t_curr: np.array([0.0, 0.0, 0.0]),
         cfg=PuppetConfig.P1_FREEFALL,
     )
     thetamat_to_csv(thetamat, "part1b")
