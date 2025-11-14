@@ -53,7 +53,24 @@ Similarly, if `dt` is shrunk, the simulation can handle larger damping values
 without such oscillations.
 
 ## Part 3
+For part A:
+```
+stiffness=2.0
+damping=0.001
+```
+At this low damping value, I'd expect the system's total energy to decrease
+very slightly over time. 
 
+For part B:
+```
+stiffness=100.0
+damping=4.0
+```
+At this higher stiffness + damping value, I'd expect:
+- system total energy decreases over time
+- visually, the arm is pulled tightly to the string and gradually stops oscillating.
+
+We see the above behavior in the videos attached.
 
 ## Part 4
 

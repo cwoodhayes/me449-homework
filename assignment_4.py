@@ -129,24 +129,39 @@ def puppet(
                 # joint torques caused by damping
                 taulist = -dthetalist * damping
 
-                # get spring position in EE frame {b}
+                # get spring position in {s}
                 spring_s = reference_pos(dt * i)
-                # convert to homogenous coordinates
-                spring_s = np.array([*spring_s, 1]).reshape(-1, 1)
+                spring_s = np.array([*spring_s, 1.0]).reshape(4, 1)
+
+                # forward kinematics: T_s_b (space -> body mapping T_sb)
                 T_sb = FKinSpace(ur5.M, Slist, thetalist)
                 T_bs = np.linalg.inv(T_sb)
-                spring_b = (T_bs @ spring_s)[:-1].flatten()
 
-                # calculate spring force in {b}
-                ee_b = T_sb[:-1, -1]
-                dist = spring_b - ee_b
-                dist_magnitude = np.linalg.norm(dist)
-                F_spring_magnitude = stiffness * (dist_magnitude - restLength)
-                F_spring = F_spring_magnitude * (dist / dist_magnitude)
+                # spring point and EE origin in body frame {b}
+                spring_b = (T_bs @ spring_s)[:3, 0]
+                ee_s = np.array([0.0, 0.0, 0.0, 1.0]).reshape(4, 1)
+                ee_b = (T_bs @ ee_s)[:3, 0]
 
-                # spring force is applied to EE, with no torque
-                # meaning that Ftip is -Fspring with no moment
-                Ftip = np.array([0, 0, 0, *(-F_spring)])
+                # vector from spring -> EE (so r points from anchor to EE)
+                r = ee_b - spring_b
+                dist_mag = np.linalg.norm(r)
+
+                # no force if zero distance or if spring is slack (optional, for cable)
+                if dist_mag <= 1e-12:
+                    F_on_EE = np.zeros(3)
+                else:
+                    extension = dist_mag - restLength
+                    if extension <= 0.0:
+                        force_mag = 0.0
+                    else:
+                        force_mag = (
+                            -stiffness * extension
+                        )  # negative => force on EE points toward spring
+                    F_on_EE = force_mag * (r / dist_mag)
+
+                # Build wrench in order [Fx, Fy, Fz, Mx, My, Mz], expressed in body/end-effector frame {b}
+                Ftip = np.hstack([np.zeros(3, dtype=float), F_on_EE])
+
             case _:
                 raise NotImplementedError("case fallthrough.")
 
@@ -261,12 +276,14 @@ def part3() -> None:
     home_thetas = np.zeros(6, dtype="float")
     rest_dthetas = np.zeros(6, dtype="float")
     t = 10.0
-    dt = 0.01
+    dt = 0.005
     rest_length = 0.0
 
+    rpos = lambda t_curr: np.array([-1.0, 1.0, -1.0])
+
     # create some small oscillations with the spring
-    stiffness = 100.0
-    damping = 0.0
+    stiffness = 2.0
+    damping = 0.001
     thetamat, dthetamat = puppet(
         home_thetas,
         rest_dthetas,
@@ -279,14 +296,14 @@ def part3() -> None:
         damping,
         stiffness,
         rest_length,
-        reference_pos=lambda t_curr: np.array([1.0, -1.0, 1.0]),
+        reference_pos=rpos,
         cfg=PuppetConfig.P3_STATIONARY_SPRING,
     )
     thetamat_to_csv(thetamat, "part3a")
 
     # add damping for part b
     stiffness = 100.0
-    damping = 1.0
+    damping = 4.0
     thetamat, dthetamat = puppet(
         home_thetas,
         rest_dthetas,
@@ -299,8 +316,8 @@ def part3() -> None:
         damping,
         stiffness,
         rest_length,
-        reference_pos=lambda t_curr: np.array([1.0, -1.0, 1.0]),
-        cfg=PuppetConfig.P2_DAMPING,
+        reference_pos=rpos,
+        cfg=PuppetConfig.P3_STATIONARY_SPRING,
     )
     thetamat_to_csv(thetamat, "part3b")
 
