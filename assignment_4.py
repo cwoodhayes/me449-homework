@@ -131,7 +131,9 @@ def puppet(
 
                 # get spring position in {s}
                 spring_s = reference_pos(dt * i)
-                spring_s = np.array([*spring_s, 1.0]).reshape(4, 1)
+                spring_s = np.array(
+                    [-spring_s[0], spring_s[1], -spring_s[2], 1.0]
+                ).reshape(4, 1)
 
                 # forward kinematics: T_s_b (space -> body mapping T_sb)
                 T_sb = FKinSpace(ur5.M, Slist, thetalist)
@@ -279,7 +281,7 @@ def part3() -> None:
     dt = 0.005
     rest_length = 0.0
 
-    rpos = lambda t_curr: np.array([-1.0, 1.0, -1.0])
+    rpos = lambda t_curr: np.array([1.0, -1.0, 1.0])
 
     # create some small oscillations with the spring
     stiffness = 2.0
@@ -325,12 +327,44 @@ def part3() -> None:
 def part4() -> None:
     print("####### PART 4 ###############")
 
+    g = np.zeros(3)
+    home_thetas = np.zeros(6, dtype="float")
+    rest_dthetas = np.zeros(6, dtype="float")
+    t = 10.0
+    dt = 0.005
+    rest_length = 0.0
+
+    def rpos(t_curr: float) -> np.ndarray:
+        period = 10 / 2
+        yval = np.cos(t_curr * (2 * np.pi / period))
+        return np.array([1.0, yval, 1.0])
+
+    # use aggressive damping like part 3b
+    stiffness = 100.0
+    damping = 4.0
+    thetamat, dthetamat = puppet(
+        home_thetas,
+        rest_dthetas,
+        g,
+        ur5.Mlist,
+        ur5.Slist,
+        ur5.Glist,
+        t,
+        dt,
+        damping,
+        stiffness,
+        rest_length,
+        reference_pos=rpos,
+        cfg=PuppetConfig.P4_MOVING_SPRING,
+    )
+    thetamat_to_csv(thetamat, "part4")
+
 
 def main() -> None:
     # part1()
     # part2()
-    part3()
-    # part4()
+    # part3()
+    part4()
 
 
 if __name__ == "__main__":
