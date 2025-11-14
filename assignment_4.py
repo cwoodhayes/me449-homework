@@ -131,9 +131,7 @@ def puppet(
 
                 # get spring position in {s}
                 spring_s = reference_pos(dt * i)
-                spring_s = np.array(
-                    [-spring_s[0], spring_s[1], -spring_s[2], 1.0]
-                ).reshape(4, 1)
+                spring_s = np.array([*spring_s, 1.0]).reshape(4, 1)
 
                 # forward kinematics: T_s_b (space -> body mapping T_sb)
                 T_sb = FKinSpace(ur5.M, Slist, thetalist)
@@ -161,8 +159,8 @@ def puppet(
                         )  # negative => force on EE points toward spring
                     F_on_EE = force_mag * (r / dist_mag)
 
-                # Build wrench in order [Fx, Fy, Fz, Mx, My, Mz], expressed in body/end-effector frame {b}
-                Ftip = np.hstack([np.zeros(3, dtype=float), F_on_EE])
+                # Ftip is the inverse of the force applied to the EE
+                Ftip = np.hstack([np.zeros(3, dtype=float), -F_on_EE])
 
             case _:
                 raise NotImplementedError("case fallthrough.")
@@ -361,9 +359,9 @@ def part4() -> None:
 
 
 def main() -> None:
-    # part1()
-    # part2()
-    # part3()
+    part1()
+    part2()
+    part3()
     part4()
 
 
