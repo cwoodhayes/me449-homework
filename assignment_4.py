@@ -1,5 +1,6 @@
 """ME449 assignment 4."""
 
+from enum import Enum, auto
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -13,6 +14,54 @@ from matplotlib.axes import Axes
 from lib.printers import print_readable
 
 
+@dataclass
+class UR5Params:
+    """
+    UR5 arm dynamics parameters.
+
+    Sourced from:
+    https://hades.mech.northwestern.edu/images/d/d9/UR5-parameters-py.txt
+    """
+
+    M01 = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0.089159], [0, 0, 0, 1]])
+    M12 = np.array([[0, 0, 1, 0.28], [0, 1, 0, 0.13585], [-1, 0, 0, 0], [0, 0, 0, 1]])
+    M23 = np.array([[1, 0, 0, 0], [0, 1, 0, -0.1197], [0, 0, 1, 0.395], [0, 0, 0, 1]])
+    M34 = np.array([[0, 0, 1, 0], [0, 1, 0, 0], [-1, 0, 0, 0.14225], [0, 0, 0, 1]])
+    M45 = np.array([[1, 0, 0, 0], [0, 1, 0, 0.093], [0, 0, 1, 0], [0, 0, 0, 1]])
+    M56 = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0.09465], [0, 0, 0, 1]])
+    M67 = np.array([[1, 0, 0, 0], [0, 0, 1, 0.0823], [0, -1, 0, 0], [0, 0, 0, 1]])
+    G1 = np.diag([0.010267495893, 0.010267495893, 0.00666, 3.7, 3.7, 3.7])
+    G2 = np.diag([0.22689067591, 0.22689067591, 0.0151074, 8.393, 8.393, 8.393])
+    G3 = np.diag([0.049443313556, 0.049443313556, 0.004095, 2.275, 2.275, 2.275])
+    G4 = np.diag([0.111172755531, 0.111172755531, 0.21942, 1.219, 1.219, 1.219])
+    G5 = np.diag([0.111172755531, 0.111172755531, 0.21942, 1.219, 1.219, 1.219])
+    G6 = np.diag([0.0171364731454, 0.0171364731454, 0.033822, 0.1879, 0.1879, 0.1879])
+    Glist = np.array([G1, G2, G3, G4, G5, G6])
+    Mlist = np.array([M01, M12, M23, M34, M45, M56, M67])
+    Slist = np.array(
+        [
+            [0, 0, 0, 0, 0, 0],
+            [0, 1, 1, 1, 0, 1],
+            [1, 0, 0, 0, -1, 0],
+            [0, -0.089159, -0.089159, -0.089159, -0.10915, 0.005491],
+            [0, 0, 0, 0, 0.81725, 0],
+            [0, 0, 0.425, 0.81725, 0, 0.81725],
+        ]
+    )
+
+
+ur5 = UR5Params()
+
+
+class PuppetConfig(Enum):
+    """Configures behavior of puppet() function."""
+
+    P1_FREEFALL = auto()
+    P2_DAMPING = auto()
+    P3_STATIONARY_SPRING = auto()
+    P4_MOVING_SPRING = auto()
+
+
 def puppet(
     thetalist: np.ndarray,
     dthetalist: np.ndarray,
@@ -23,8 +72,9 @@ def puppet(
     t: float,
     dt: float,
     damping: float,
-    stiffness: str,
+    stiffness: float,
     restLength: float,
+    cfg: PuppetConfig = PuppetConfig.P4_MOVING_SPRING,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Allows puppeteering of a UR5 robot arm.
 
@@ -52,11 +102,86 @@ def puppet(
             dthetmat: an N x n matrix where row i is the set of joint
                 rates after simulation step i − 1
     """
-    pass
+    N = int(np.floor(t / dt))
+    thetamat = np.empty(shape=(N, 6))
+    dthetamat = np.empty(shape=(N, 6))
+    print(f"thetamat shape={thetamat.shape}")
+
+    return thetamat, dthetamat
+
+
+def thetamat_to_csv(thetamat: np.ndarray, stem: str) -> None:
+    """Write thetamat values to a csv file suitable for CoppelliaSim."""
+    output_dir = Path(__file__).parent / "output"
+    path = output_dir / f"{stem}.csv"
+    if path.exists():
+        path.unlink()
+
+    np.savetxt(path, thetamat, delimiter=",")
+
+
+def part1() -> None:
+    print("####### PART 1 ###############")
+
+    g = np.array([0, 0, -9.81])
+    home_thetas = np.zeros(6, dtype="float")
+    rest_dthetas = np.zeros(6, dtype="float")
+    t = 10.0
+    dt_good = 0.01
+    dt_explode = 0.1
+
+    # where energy appears nearly constant
+    thetamat, dthetamat = puppet(
+        home_thetas,
+        rest_dthetas,
+        g,
+        ur5.Mlist,
+        ur5.Slist,
+        ur5.Glist,
+        t,
+        dt_good,
+        0.0,
+        0.0,
+        0.0,
+        cfg=PuppetConfig.P1_FREEFALL,
+    )
+    thetamat_to_csv(thetamat, "part1a")
+
+    # where energy does not appear constant
+    thetamat, dthetamat = puppet(
+        home_thetas,
+        rest_dthetas,
+        g,
+        ur5.Mlist,
+        ur5.Slist,
+        ur5.Glist,
+        t,
+        dt_explode,
+        0.0,
+        0.0,
+        0.0,
+        cfg=PuppetConfig.P1_FREEFALL,
+    )
+    thetamat_to_csv(thetamat, "part1b")
+
+
+def part2() -> None:
+    print("####### PART 2 ###############")
+
+
+def part3() -> None:
+    print("####### PART 3 ###############")
+
+
+def part4() -> None:
+    print("####### PART 4 ###############")
 
 
 def main() -> None:
-    pass
+    part1()
+    # part2()
+    # part3()
+    # part4()
 
 
 if __name__ == "__main__":
