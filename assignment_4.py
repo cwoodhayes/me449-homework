@@ -28,6 +28,7 @@ class UR5Params:
     M45 = np.array([[1, 0, 0, 0], [0, 1, 0, 0.093], [0, 0, 1, 0], [0, 0, 0, 1]])
     M56 = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0.09465], [0, 0, 0, 1]])
     M67 = np.array([[1, 0, 0, 0], [0, 0, 1, 0.0823], [0, -1, 0, 0], [0, 0, 0, 1]])
+    M = M01 @ M12 @ M23 @ M34 @ M45 @ M56 @ M67
     G1 = np.diag([0.010267495893, 0.010267495893, 0.00666, 3.7, 3.7, 3.7])
     G2 = np.diag([0.22689067591, 0.22689067591, 0.0151074, 8.393, 8.393, 8.393])
     G3 = np.diag([0.049443313556, 0.049443313556, 0.004095, 2.275, 2.275, 2.275])
@@ -130,20 +131,22 @@ def puppet(
 
                 # get spring position in EE frame {b}
                 spring_s = reference_pos(dt * i)
-                T_sb = FKinSpace(Mlist, Slist, thetalist)
+                # convert to homogenous coordinates
+                spring_s = np.array([*spring_s, 1]).reshape(-1, 1)
+                T_sb = FKinSpace(ur5.M, Slist, thetalist)
                 T_bs = np.linalg.inv(T_sb)
-                spring_b = spring_s @ T_bs.T
+                spring_b = (T_bs @ spring_s)[:-1].flatten()
 
                 # calculate spring force in {b}
-                ee_b = T_sb[3, :-1]
+                ee_b = T_sb[:-1, -1]
                 dist = spring_b - ee_b
                 dist_magnitude = np.linalg.norm(dist)
                 F_spring_magnitude = stiffness * (dist_magnitude - restLength)
                 F_spring = F_spring_magnitude * (dist / dist_magnitude)
 
-                # spring force is applied to EE
-                # meaning that Ftip is -Fspring
-                Ftip = -F_spring
+                # spring force is applied to EE, with no torque
+                # meaning that Ftip is -Fspring with no moment
+                Ftip = np.array([0, 0, 0, *(-F_spring)])
             case _:
                 raise NotImplementedError("case fallthrough.")
 
@@ -262,7 +265,7 @@ def part3() -> None:
     rest_length = 0.0
 
     # create some small oscillations with the spring
-    stiffness = 2.0
+    stiffness = 100.0
     damping = 0.0
     thetamat, dthetamat = puppet(
         home_thetas,
@@ -277,12 +280,12 @@ def part3() -> None:
         stiffness,
         rest_length,
         reference_pos=lambda t_curr: np.array([1.0, -1.0, 1.0]),
-        cfg=PuppetConfig.P2_DAMPING,
+        cfg=PuppetConfig.P3_STATIONARY_SPRING,
     )
     thetamat_to_csv(thetamat, "part3a")
 
     # add damping for part b
-    stiffness = 2.0
+    stiffness = 100.0
     damping = 1.0
     thetamat, dthetamat = puppet(
         home_thetas,
