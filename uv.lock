@@ -173,7 +173,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "matplotlib", specifier = ">=3.10.7" },
-    { name = "modern-robotics", directory = "../ModernRobotics/packages/Python" },
+    { name = "modern-robotics", specifier = ">=1.1.1" },
     { name = "numpy", specifier = ">=2.3.3" },
     { name = "scipy", specifier = ">=1.16.2" },
     { name = "sympy", specifier = ">=1.14.0" },
@@ -228,14 +228,15 @@ wheels = [
 
 [[package]]
 name = "modern-robotics"
-version = "1.1.0"
-source = { directory = "../ModernRobotics/packages/Python" }
+version = "1.1.1"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy" },
 ]
-
-[package.metadata]
-requires-dist = [{ name = "numpy" }]
+sdist = { url = "https://files.pythonhosted.org/packages/94/14/f41d2608b0ee28c49a9a2a928242495b8b79848d57826d6a387c9204ff43/modern_robotics-1.1.1.tar.gz", hash = "sha256:76227293e674fbd307ffc3b1d49d594839c0fe83f3bb594ec3b58cf584a2a0ea", size = 15176, upload-time = "2023-02-03T02:05:10.427Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/4d/d7/5642b72cfc97b33722ac436e7a88ba21d1555650975e56cf2e03beb60a3d/modern_robotics-1.1.1-py3-none-any.whl", hash = "sha256:f2d41f20f0a50cb00e74cc646bf7548bea8c7d5e5628b9c0614c407e691d0754", size = 15186, upload-time = "2023-02-03T02:05:09.395Z" },
+]
 
 [[package]]
 name = "mpmath"
