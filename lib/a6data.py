@@ -6,7 +6,7 @@ Author: Conor Hayes
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum, auto
 from pathlib import Path
 
@@ -86,6 +86,8 @@ class UR5PlanningConfig:
     Ts_end: np.ndarray
     """End configuration of planned trajectory (EE pose) as an SE(3) matrix."""
 
+    sim_dt: float = 0.01
+
     @classmethod
     def from_file(cls, p: Path) -> UR5PlanningConfig:
         """Load in this data from a config file."""
@@ -101,13 +103,43 @@ class UR5PlanningConfig:
             )
 
 
+JOINT_COLS = [f"joint_{i}" for i in range(6)]
+
+
 @dataclass
 class UR5TrajectoryOutput:
     """Data outputted by planning + simulation."""
 
-    joint_angles: pd.DataFrame
-    joint_torques: pd.DataFrame
-    errors: pd.DataFrame
+    joint_angles: pd.DataFrame = field(
+        default_factory=lambda: pd.DataFrame(columns=["time_s", *JOINT_COLS])
+    )
+    joint_torques: pd.DataFrame = field(
+        default_factory=lambda: pd.DataFrame(columns=["time_s", *JOINT_COLS])
+    )
+    errors: pd.DataFrame = field(
+        default_factory=lambda: pd.DataFrame(
+            columns=["time_s", "angular_err", "linear_err"]
+        )
+    )
+
+    @classmethod
+    def empty_from_config(cls, cfg: UR5PlanningConfig) -> UR5TrajectoryOutput:
+        out = UR5TrajectoryOutput()
+
+        ts = np.arange(0, cfg.duration_s, cfg.sim_dt)
+        N = ts.shape[0]
+
+        for df in [out.joint_angles, out.joint_torques, out.errors]:
+            df["time_s"] = ts
+            cols = df.columns[1:]
+            df[cols] = np.zeros(shape=(N, len(cols)))
+
+        return out
+
+    @property
+    def N(self) -> int:
+        """Number of steps in the trajectory"""
+        return self.joint_angles.shape[0]
 
     def export(self, dirpath: Path) -> None:
         """Export these to files in a directory"""
