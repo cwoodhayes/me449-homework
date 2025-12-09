@@ -11,6 +11,7 @@ from enum import Enum, auto
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import toml
 
 
@@ -49,6 +50,8 @@ class UR5Params:
             [0, 0, 0.425, 0.81725, 0, 0.81725],
         ]
     )
+
+    joint_damping_coeff: float = 0.5
 
 
 class TrajectoryType(Enum):
@@ -96,3 +99,27 @@ class UR5PlanningConfig:
                 duration_s=float(config["duration_s"]),
                 actual_init_config=np.array(config["actual_init_config"], dtype=float),
             )
+
+
+@dataclass
+class UR5TrajectoryOutput:
+    """Data outputted by planning + simulation."""
+
+    joint_angles: pd.DataFrame
+    joint_torques: pd.DataFrame
+    errors: pd.DataFrame
+
+    def export(self, dirpath: Path) -> None:
+        """Export these to files in a directory"""
+        dirpath.mkdir(exist_ok=True, parents=True)
+
+        self.joint_angles.to_csv(dirpath / "joint_angles.csv", index=False, header=True)
+        self.joint_torques.to_csv(
+            dirpath / "joint_torques.csv", index=False, header=True
+        )
+        self.errors.to_csv(dirpath / "errors.csv", index=False, header=True)
+
+        # generate coppeliasim-compatible output
+        cop = self.joint_angles.copy()
+        del cop["time_s"]
+        cop.to_csv(dirpath / "coppellia.csv", index=False, header=False)
