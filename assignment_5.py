@@ -69,7 +69,27 @@ def I_cylinder(r: float, h: float, m: float) -> np.ndarray:
     )
 
 
+def ex11_6():
+    w_n = (1 / 40) ** 0.5
+    zeta = (10**0.5) / 2
+
+    s1 = -zeta * w_n + w_n * (zeta**2 - 1)
+    print_readable_and_answer(s1, "s1")
+    print_readable_and_answer(-1 / s1, "time constant")
+
+    print("part c")
+    K_d = 4 * 10**0.5 - 2
+    print(K_d)
+
+    print("part d")
+    K_p = 4 * 0.04**2
+    print(K_p)
+    K_d = 2 * np.sqrt(4 * 0.0004) - 2
+    print(K_d)
+
+
 if __name__ == "__main__":
     # ex6_8()
 
-    ex8_2()
+    # ex8_2()
+    ex11_6()
