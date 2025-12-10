@@ -66,7 +66,9 @@ Using the same gains & torque limits as the above with a cartesian trajectory pl
 
 [Controller performance](/a6-output/2_CARTESIAN_QUINTIC/a6_actual_vs_desired.png)
 
-This performance is very similar to example 1 above, except following a cartesian path. The controller experiences a similar jerk at 4.1s
+This performance is very similar to example 1 above, except following a cartesian path. 
+At the start, there is a sudden jerk dragging the EE to the desired trajectory, after which the control is somewhat smooth, though a little stuttery.
+The controller experiences a similar jerk to the above at 4.1s
 
 ### 3 - Screw Cubic (unlimited torque, high P gain)
 This trajectory follows a screw path and raises the torque limit to 400 N*m, and makes the P gain dominate the controller:
