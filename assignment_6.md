@@ -5,73 +5,81 @@
 ### Contents
 1. PDF file (this file) -- see sections below
 2. commented code is contained in `code` directory
-3. output CSV's are in the top-level submission zip, and also are placed in `code/a6-output/*` when the code is run
+3. output CSV's + plots are in the top-level submission zip, and also are placed in `code/a6-output/*` when the code is run
 5. videos are in the top-level submission zip
 
 ### Running the code
 #### using `uv` (no virtualenv needed)
 ```
 uv sync
-uv run assignment_4.py
+uv run assignment_6.py
 ```
 
-#### using `pip` (recommended: use virtualenv)
+#### using `pip` (should use virtualenv)
 ```
 pip install -r requirements.txt
-python assignment_4.py
+python assignment_6.py
 ```
 
-## Part 1
-For part A, `dt=0.001` was chosen, which gave a reasonable energy-preserving
-trajectory as evaluated visually in CopelliaSim.
+## Code Overview
 
-For part B, `dt=0.02` was chosen, causing the robot arm's trajectory to chaotically
-increase energy as time goes on, once more evaluated visually.
+This code simultates a controlled trajectory between two end effector poses.
+In order to do so, it takes input data from `config/a6_demo1.toml`, where the EE poses and other configuration data is specified. It then places the resulting data inside the `a6-output` folder under a subfolder named after the trajectory type (e.g. `SCREW_CUBIC`), overwriting any data that's already there.
+The contents of that output are:
+- 2 figures (`*.png`) plotting the results of the run
+- `coppellia.csv` - a csv file suitable for pasting into Scene 2
+- `errors.csv`, `joint_angles.csv`, `joint_torques.csv` - error, joint angle, and joint torque vs. time data outputted by the simulation.
+- a copy of the config used to generate that data.
 
-In order to plot energy over time, we could calculate energy for each timestep
-inside of `puppet()` as follows (all variables on the right hand side of the
-equation are already available at runtime inside the function as implemented):
+The controller used to follow these trajectories, in all cases, is a computed torque controller configured by PID gains operating in joint space, as provided by the Modern Robotics library.
 
-$KE = .5 * \dot{\theta}^T M(\theta) \dot{\theta}$
+This means that it receives as input a desired position, velocity, and acceleration in joint space, and outputs joint torques to apply to maintain that trajectory at each timestep.
 
-Then we can save this energy in an array to be returned at the end of `puppet()` execution.
+## 3 Example Runs
+All runs share the following configuration:
+- move the EE from $T_A$ to $T_B$ (same poses used) for all
+- same start EE pose $T_s$ is used for all
+- use joint-space computed torque control with the ground-truth UR5 dynamics model.
+- 5s trajectory duration, .01s timestep, 8 euler steps per timestep
 
-## Part 2
-For part A, `damping=1.0` was selected, and for part B, `damping=-0.01` was selected.
-
-Very large constant damping values produce overflow values in numpy
-for this implementation, but in general, large damping values with
-insufficiently small values of `dt` will produce
-oscillations in simulation; this is because a small velocity will produce a 
-sufficiently large acceleration to flip the sign of the joint velocity over
-the course of `dt`, resulting in a flip-flopping effect that may
-escalate out of control.
-
-This is only an artifact of simulation, however, because in continuous time
-the damping force can only reduce the velocity to 0, not reverse the sign. 
-Similarly, if `dt` is shrunk, the simulation can handle larger damping values
-without such oscillations.
-
-## Part 3
-For part A:
+The runs vary control gains, joint torque limit (modeled here as a single scalar applied to all joints), and trajectory type.
+### 1 - Screw Cubic (limited torque, balanced gains)
+A first pass was taken using a screw cubic path and balanced PID gains, with torque limited to 120N*m, like so:
 ```
-stiffness=2.0
-damping=0.001
+Kp = 20
+Ki = 10
+Kd = 18
+torque_limit = 120.0
 ```
-At this low damping value, I'd expect the system's total energy to decrease
-very slightly over time. 
 
-For part B:
+[Time series plot 3](a6-output/1_SCREW_CUBIC/A6_output.png)
+
+[Controller performance](a6-output/1_SCREW_CUBIC/a6_actual_vs_desired.png)
+
+As can be seen above, when the output saturates to the 120N*m torque limit, the controller can deviate significantly from the desired trajectory. Performance in this case is fine after the initial convergence to the desired trajectory, but still contains the occasional sudden jerk away due to saturation (see about 4.1 seconds in). 
+
+
+### 2 - Cartesian Quintic (limited torque, balanced gains)
+Using the same gains & torque limits as the above with a cartesian trajectory plan results in the following:
+
+[Time series plot 3](a6-output/2_CARTESIAN_QUINTIC/A6_output.png)
+
+[Controller performance](/a6-output/2_CARTESIAN_QUINTIC/a6_actual_vs_desired.png)
+
+This performance is very similar to example 1 above, except following a cartesian path. The controller experiences a similar jerk at 4.1s
+
+### 3 - Screw Cubic (unlimited torque, high P gain)
+This trajectory follows a screw path and raises the torque limit to 400 N*m, and makes the P gain dominate the controller:
 ```
-stiffness=100.0
-damping=4.0
+Kp = 50
+Ki = 0
+Kd = 10
+torque_limit = 400.0
 ```
-At this higher stiffness + damping value, I'd expect:
-- system total energy decreases over time
-- visually, the arm is pulled tightly to the string and gradually stops oscillating.
 
-We see the above behavior in the videos attached.
+I expected this to take advantage of the increased torque range, but actually it performed extremely well and stayed within a realistic 150N*m torque, as can be seen in the plot here:
+[Time series plot 3](a6-output/3_SCREW_CUBIC_UNLIMITED/A6_output.png)
 
-## Part 4
-See video. constants from 3B were used again.
+[Controller performance](/a6-output/3_SCREW_CUBIC_UNLIMITED/a6_actual_vs_desired.png)
 
+My takeaway from this is that PD control with P term dominating is actually a very viable tuning for this problem.
