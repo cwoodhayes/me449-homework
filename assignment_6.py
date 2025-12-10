@@ -6,6 +6,7 @@ Final assignment for Prof. Lynch's class.
 Author: Conor Hayes
 """
 
+import argparse
 from pathlib import Path
 
 from matplotlib.axes import Axes
@@ -36,7 +37,7 @@ def main() -> None:
 
 def plan_and_simulate(req: a6data.UR5PlanningRequest) -> a6data.UR5TrajectoryOutput:
     """Plan a trajectory and simulate it under control."""
-    out = a6data.UR5TrajectoryOutput.empty_from_config(req)
+    out = a6data.UR5TrajectoryOutput.empty_from_req(req)
     eomg = 0.01
     ev = 0.01
     N = out.N
@@ -89,9 +90,6 @@ def plan_and_simulate(req: a6data.UR5PlanningRequest) -> a6data.UR5TrajectoryOut
     Ftipmat = np.zeros((N, 6))
 
     # tuning params
-    Kp = 20
-    Ki = 10
-    Kd = 18
     intRes = 8
 
     print("Simulating with computed torque control...")
@@ -109,13 +107,13 @@ def plan_and_simulate(req: a6data.UR5PlanningRequest) -> a6data.UR5TrajectoryOut
         g,
         UR5.Mlist,
         UR5.Glist,
-        Kp,
-        Ki,
-        Kd,
+        req.Kp,
+        req.Ki,
+        req.Kd,
         dt,
         intRes,
         UR5.joint_damping_coeff,
-        UR5.torque_limits,
+        req.torque_limit,
     )
     jcols = out.joint_angles.columns[1:]
     out.joint_angles[jcols] = thetamat

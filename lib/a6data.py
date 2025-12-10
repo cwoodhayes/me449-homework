@@ -8,7 +8,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum, auto
+import os
 from pathlib import Path
+import shutil
 
 import numpy as np
 import pandas as pd
@@ -54,8 +56,6 @@ class UR5Params:
     )
 
     joint_damping_coeff: float = 0.5
-    # joint torque limits in N*m
-    torque_limits = 100.0
 
 
 class TrajectoryType(Enum):
@@ -75,6 +75,8 @@ class UR5PlanningRequest:
     User input representation for a6.
     """
 
+    path: Path
+
     traj_type: TrajectoryType
     """Type of trajectory the robot should follow."""
 
@@ -90,6 +92,11 @@ class UR5PlanningRequest:
     Ts_end: np.ndarray
     """End configuration of planned trajectory (EE pose) as an SE(3) matrix."""
 
+    Kp: float
+    Ki: float
+    Kd: float
+    torque_limit: float
+
     sim_dt: float = 0.01
     """timestep for simulation"""
 
@@ -100,11 +107,16 @@ class UR5PlanningRequest:
             config = toml.load(fp)
 
             return UR5PlanningRequest(
+                p,
                 Ts_start=np.array(config["Ts_start"]["SE3"], dtype=float),
                 Ts_end=np.array(config["Ts_end"]["SE3"], dtype=float),
                 traj_type=TrajectoryType[config["traj_type"]],
                 duration_s=float(config["duration_s"]),
                 actual_init_config=np.array(config["actual_init_config"], dtype=float),
+                Kp=config["Kp"],
+                Ki=config["Ki"],
+                Kd=config["Kd"],
+                torque_limit=config["torque_limit"],
             )
 
 
@@ -114,6 +126,8 @@ JOINT_COLS = [f"joint_{i}" for i in range(6)]
 @dataclass
 class UR5TrajectoryOutput:
     """Data outputted by planning + simulation."""
+
+    req: UR5PlanningRequest
 
     joint_angles: pd.DataFrame = field(
         default_factory=lambda: pd.DataFrame(columns=["time_s", *JOINT_COLS])
@@ -128,10 +142,10 @@ class UR5TrajectoryOutput:
     )
 
     @classmethod
-    def empty_from_config(cls, cfg: UR5PlanningRequest) -> UR5TrajectoryOutput:
-        out = UR5TrajectoryOutput()
+    def empty_from_req(cls, req: UR5PlanningRequest) -> UR5TrajectoryOutput:
+        out = UR5TrajectoryOutput(req)
 
-        ts = np.arange(0, cfg.duration_s, cfg.sim_dt)
+        ts = np.arange(0, req.duration_s, req.sim_dt)
         N = ts.shape[0]
 
         for df in [out.joint_angles, out.joint_torques, out.errors]:
@@ -160,3 +174,6 @@ class UR5TrajectoryOutput:
         cop = self.joint_angles.copy()
         del cop["time_s"]
         cop.to_csv(dirpath / "coppellia.csv", index=False, header=False)
+
+        # also copy the request file into there for documentation
+        shutil.copy(self.req.path, dirpath / "req.toml")

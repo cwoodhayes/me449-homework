@@ -3,7 +3,7 @@
 # Author: Conor Hayes
 
 # trajectory type.
-traj_type = 'SCREW_CUBIC'
+traj_type = 'CARTESIAN_QUINTIC'
 
 # duration of motion in seconds
 duration_s = 5.0
@@ -11,6 +11,13 @@ duration_s = 5.0
 # actual initial joint configuration (radians)
 actual_init_config = [0.0, 2.0, -0.9, -1.5, 0.0, 3.0]
 # actual_init_config = [0,0,0,0,0,0]
+
+# controls and robot stuff
+Kp = 20
+Ki = 10
+Kd = 18
+# torque limit for every joint in N*m
+torque_limit = 100.0
 
 [Ts_start]
 SE3 = [
