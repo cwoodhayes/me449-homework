@@ -9,8 +9,8 @@ traj_type = 'SCREW_CUBIC'
 duration_s = 5.0
 
 # actual initial joint configuration (radians)
-actual_init_config = [0, 0, 0, 0, 0, 0]
-
+actual_init_config = [0.0, 2.0, -0.9, -1.5, 0.0, 3.0]
+# actual_init_config = [0,0,0,0,0,0]
 
 [Ts_start]
 SE3 = [

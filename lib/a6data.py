@@ -54,6 +54,8 @@ class UR5Params:
     )
 
     joint_damping_coeff: float = 0.5
+    # joint torque limits in N*m
+    torque_limits = 100.0
 
 
 class TrajectoryType(Enum):
@@ -89,6 +91,7 @@ class UR5PlanningRequest:
     """End configuration of planned trajectory (EE pose) as an SE(3) matrix."""
 
     sim_dt: float = 0.01
+    """timestep for simulation"""
 
     @classmethod
     def from_file(cls, p: Path) -> UR5PlanningRequest:

@@ -27,9 +27,11 @@ def main() -> None:
 
     traj = plan_and_simulate(req)
 
-    out_dir = OUTPUT_DIR_PATH
+    out_dir = OUTPUT_DIR_PATH / req.traj_type.name
     plot_output(req, traj, out_dir)
     traj.export(out_dir)
+
+    plt.show()
 
 
 def plan_and_simulate(req: a6data.UR5PlanningRequest) -> a6data.UR5TrajectoryOutput:
@@ -50,6 +52,7 @@ def plan_and_simulate(req: a6data.UR5PlanningRequest) -> a6data.UR5TrajectoryOut
     dtheta_start = np.zeros(6)
 
     # generate a EE trajectory (Tlist) according to the request.
+    print("Generating timescaled EE trajectory...")
     method = (
         3
         if (a6data.TrajectoryType.SCREW_CUBIC or a6data.TrajectoryType.CARTESIAN_CUBIC)
@@ -63,6 +66,7 @@ def plan_and_simulate(req: a6data.UR5PlanningRequest) -> a6data.UR5TrajectoryOut
         )
 
     # generate a joint space trajectories, velocities, and accelerations
+    print("Generating desired joint trajectory...")
     thetamat = np.empty(shape=(N, 6))
     dthetamat = np.empty(shape=(N, 6))
     ddthetamat = np.empty(shape=(N, 6))
@@ -90,6 +94,7 @@ def plan_and_simulate(req: a6data.UR5PlanningRequest) -> a6data.UR5TrajectoryOut
     Kd = 18
     intRes = 8
 
+    print("Simulating with computed torque control...")
     taumat, thetamat = simulate_control(
         req.actual_init_config,
         dtheta_start,
@@ -109,12 +114,50 @@ def plan_and_simulate(req: a6data.UR5PlanningRequest) -> a6data.UR5TrajectoryOut
         Kd,
         dt,
         intRes,
+        UR5.joint_damping_coeff,
+        UR5.torque_limits,
     )
     jcols = out.joint_angles.columns[1:]
     out.joint_angles[jcols] = thetamat
     out.joint_torques[jcols] = taumat
 
+    # calculate error in EE pose over time as normed linear & angular error
+    Tlist = np.array(Tlist)
+    Tlist_actual = np.empty_like(Tlist)
+    for i in range(N):
+        Tlist_actual[i] = mr.FKinSpace(UR5.M, UR5.Slist, thetamat[i])
+
+        out.errors.loc[i, "angular_err"] = angle_err(
+            Tlist[i, :3, :3], Tlist_actual[i, :3, :3]
+        )
+
+    ee_position_errs = np.squeeze(Tlist_actual[:, 0:3, 3] - Tlist[:, 0:3, 3])
+    out.errors["linear_err"] = np.linalg.norm(ee_position_errs, axis=1)
+
+    print("Done.")
     return out
+
+
+def angle_err(R1: np.ndarray, R2: np.ndarray) -> float:
+    """
+    returns the angle along the geodesic between R1 and R2
+
+    Args:
+        R1 (np.ndarray): SO rotation matrix
+        R2 (np.ndarray): SO rotation matrix
+
+    Returns:
+        float: angle between R1 and R2 in radians
+    """
+
+    # R1 @ R = R2 -- R is rotation between them.
+    R = R1.T @ R2
+
+    # use Rodrigues's formula to get the angle-axis
+    # rep for this matrix, and get the angle theta
+    # cite: https://www.egr.msu.edu/~vaibhav/teaching/robotics/lectures/lec13.pdf?utm_source=chatgpt.com
+    theta = np.arccos((np.trace(R) - 1) / 2)
+    return theta
 
 
 def simulate_control(
@@ -136,6 +179,8 @@ def simulate_control(
     Kd,
     dt,
     intRes,
+    damping_coeff: float,
+    torque_limits: float | np.ndarray,
 ):
     """lightly edited version of Modern Robotic's SimulateControl function."""
     Ftipmat = np.array(Ftipmat).T
@@ -166,6 +211,10 @@ def simulate_control(
             Ki,
             Kd,
         )
+        # apply damping to each joint
+        taulist -= dthetamatd[:, 1] * damping_coeff
+        # apply torque limits
+        taulist = np.clip(taulist, a_min=-torque_limits, a_max=torque_limits)
         for j in range(intRes):
             ddthetalist = mr.ForwardDynamics(
                 thetacurrent,
@@ -189,31 +238,32 @@ def simulate_control(
     N = np.array(thetamat).shape[1]
     Tf = N * dt
     timestamp = np.linspace(0, Tf, N)
+    fig = plt.figure("a6_actual_vs_desired")
+    ax = fig.add_subplot()
     for i in range(links):
         col = [
             np.random.uniform(0, 1),
             np.random.uniform(0, 1),
             np.random.uniform(0, 1),
         ]
-        plt.plot(
+        ax.plot(
             timestamp,
             thetamat[i, :],
             "-",
             color=col,
             label=("ActualTheta" + str(i + 1)),
         )
-        plt.plot(
+        ax.plot(
             timestamp,
             thetamatd[i, :],
             ".",
             color=col,
             label=("DesiredTheta" + str(i + 1)),
         )
-    plt.legend(loc="upper left")
-    plt.xlabel("Time")
-    plt.ylabel("Joint Angles")
-    plt.title("Plot of Actual and Desired Joint Angles")
-    # plt.show()
+    ax.legend(loc="upper left")
+    ax.set_xlabel("Time")
+    ax.set_ylabel("Joint Angles")
+    ax.set_title("Plot of Actual and Desired Joint Angles")
     taumat = np.array(taumat).T
     thetamat = np.array(thetamat).T
     return (taumat, thetamat)
