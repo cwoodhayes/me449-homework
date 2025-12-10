@@ -42,12 +42,12 @@ def plan_and_simulate(req: a6data.UR5PlanningRequest) -> a6data.UR5TrajectoryOut
     g = np.array([0, 0, -9.81])
 
     # start from rest
-    theta_start = mr.IKinSpace(UR5.Slist, UR5.M, req.Ts_start, np.zeros(6), eomg, ev)
+    theta_start, success = mr.IKinSpace(
+        UR5.Slist, UR5.M, req.Ts_start, np.zeros(6), eomg, ev
+    )
+    if not success:
+        raise RuntimeError("Failed IKinSpace!")
     dtheta_start = np.zeros(6)
-
-    # end at rest
-    theta_end = mr.IKinSpace(UR5.Slist, UR5.M, req.Ts_start, np.zeros(6), eomg, ev)
-    dtheta_end = np.zeros(6)
 
     # generate a EE trajectory (Tlist) according to the request.
     method = (
@@ -56,7 +56,7 @@ def plan_and_simulate(req: a6data.UR5PlanningRequest) -> a6data.UR5TrajectoryOut
         else 5
     )
     if a6data.TrajectoryType.SCREW_CUBIC or a6data.TrajectoryType.SCREW_QUINTIC:
-        Tlist = mr.ScrewTrajectory(theta_start, theta_end, req.duration_s, N, method)
+        Tlist = mr.ScrewTrajectory(req.Ts_start, req.Ts_end, req.duration_s, N, method)
     else:
         Tlist = mr.CartesianTrajectory(
             req.Ts_start, req.Ts_end, req.duration_s, N, method
@@ -66,11 +66,14 @@ def plan_and_simulate(req: a6data.UR5PlanningRequest) -> a6data.UR5TrajectoryOut
     thetamat = np.empty(shape=(N, 6))
     dthetamat = np.empty(shape=(N, 6))
     ddthetamat = np.empty(shape=(N, 6))
-    thetamat[0] = theta_start
+    thetamat[0, :] = theta_start
     for i in range(N):
-        thetamat[i] = mr.IKinSpace(
+        thetamat[i], success = mr.IKinSpace(
             UR5.Slist, UR5.M, Tlist[i], thetamat[i - 1], eomg, ev
         )
+        if not success:
+            print(f"Failed IKinSpace at index {i}.")
+            thetamat[i] = [np.nan] * 6
 
     # calculate joint velocities and accelerations for the trajectory
     for i in range(N - 1):
@@ -88,7 +91,7 @@ def plan_and_simulate(req: a6data.UR5PlanningRequest) -> a6data.UR5TrajectoryOut
     intRes = 8
 
     taumat, thetamat = simulate_control(
-        theta_start,
+        req.actual_init_config,
         dtheta_start,
         g,
         Ftipmat,
@@ -210,7 +213,7 @@ def simulate_control(
     plt.xlabel("Time")
     plt.ylabel("Joint Angles")
     plt.title("Plot of Actual and Desired Joint Angles")
-    plt.show()
+    # plt.show()
     taumat = np.array(taumat).T
     thetamat = np.array(thetamat).T
     return (taumat, thetamat)
