@@ -14,6 +14,8 @@ import numpy as np
 import pandas as pd
 import toml
 
+from modern_robotics import SimulateControl
+
 
 @dataclass
 class UR5Params:
@@ -64,7 +66,7 @@ class TrajectoryType(Enum):
 
 
 @dataclass
-class UR5PlanningConfig:
+class UR5PlanningRequest:
     """
     Planning parameters for controlled motion of the UR5 arm.
 
@@ -89,12 +91,12 @@ class UR5PlanningConfig:
     sim_dt: float = 0.01
 
     @classmethod
-    def from_file(cls, p: Path) -> UR5PlanningConfig:
+    def from_file(cls, p: Path) -> UR5PlanningRequest:
         """Load in this data from a config file."""
         with open(p, "r") as fp:
             config = toml.load(fp)
 
-            return UR5PlanningConfig(
+            return UR5PlanningRequest(
                 Ts_start=np.array(config["Ts_start"]["SE3"], dtype=float),
                 Ts_end=np.array(config["Ts_end"]["SE3"], dtype=float),
                 traj_type=TrajectoryType[config["traj_type"]],
@@ -123,7 +125,7 @@ class UR5TrajectoryOutput:
     )
 
     @classmethod
-    def empty_from_config(cls, cfg: UR5PlanningConfig) -> UR5TrajectoryOutput:
+    def empty_from_config(cls, cfg: UR5PlanningRequest) -> UR5TrajectoryOutput:
         out = UR5TrajectoryOutput()
 
         ts = np.arange(0, cfg.duration_s, cfg.sim_dt)
